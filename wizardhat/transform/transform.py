@@ -1,7 +1,7 @@
 """Applying arbitrary transformations/calculations to `Data` objects.
 """
 
-from wizardhat.buffers import Spectra
+from wizardhat.buffers import Spectra, TimeSeries
 import wizardhat.utils as utils
 
 import copy
@@ -124,6 +124,27 @@ class MNEFilter(MNETransformer):
             self.buffer_out.update(timestamps, filtered.T)
             self._count = 0
 
+class Epoch(Transformer):
+    def __init__(self, buffer_in, epoch_duration=1):
+        Transformer.__init__(self, buffer_in=buffer_in)
+        self.sfreq = buffer_in.sfreq
+        ch_names = list(self.buffer_in.ch_names)
+        ch_names.append('epoch_marker')
+        self.buffer_out = TimeSeries(ch_names)
+        self.init_timestamp = self.buffer_in.last_sample["time"]
+        self.epoch_duration = epoch_duration
+
+    def _buffer_update_callback(self):
+        timestamp = self.buffer_in.last_sample["time"]
+        data = self.buffer_in.get_unstructured(last_n=2)
+        if timestamp - self.init_timestamp >=self.epoch_duration:
+            data = np.append(data,1)
+            self.buffer_out.update(timestamp.tolist(), data.tolist())
+            self.init_timestamp = timestamp
+        else:
+            data = np.append(data,0)
+            self.buffer_out.update(timestamp, data.tolist())
+
 
 class PSD(Transformer):
     """Calculate the power spectral density for time series data.
@@ -219,3 +240,5 @@ class MovingAverage(Convolve):
     def __init__(self, buffer_in, n_avg):
         conv_arr = np.array([1 / n_avg] * n_avg)
         Convolve.__init__(self, buffer_in=buffer_in, conv_arr=conv_arr)
+
+
