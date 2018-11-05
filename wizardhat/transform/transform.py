@@ -135,15 +135,16 @@ class Epoch(Transformer):
         self.epoch_duration = epoch_duration
         
     def _buffer_update_callback(self):
-        timestamp = self.buffer_in.get_timestamps(last_n=1)
-        data = self.buffer_in.get_unstructured(last_n=1)
-        if timestamp - self.init_timestamp >= self.epoch_duration:
-            data = np.append(data, [[1]], axis=1)
-            self.buffer_out.update(timestamp, data)
-            self.init_timestamp = timestamp
-        else:
-            data = np.append(data, [[0]], axis=1)
-            self.buffer_out.update(timestamp, data)
+        timestamp = self.buffer_in.get_timestamps(last_n=12)
+        data = self.buffer_in.get_unstructured(last_n=12)
+        data = np.append(data, np.zeros([12,1]), axis=1)
+        for i in range(0,len(timestamp)):
+            if timestamp[i] - self.init_timestamp >= self.epoch_duration:
+                data[i,5] = 1
+                self.init_timestamp = timestamp[i]
+            else:
+                continue
+        self.buffer_out.update(timestamp, data)
 
 
 
