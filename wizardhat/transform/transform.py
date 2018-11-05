@@ -133,17 +133,18 @@ class Epoch(Transformer):
         self.buffer_out = TimeSeries(ch_names)
         self.init_timestamp = self.buffer_in.last_sample["time"]
         self.epoch_duration = epoch_duration
-
+        
     def _buffer_update_callback(self):
-        timestamp = self.buffer_in.last_sample["time"]
-        data = self.buffer_in.get_unstructured(last_n=2)
-        if timestamp - self.init_timestamp >=self.epoch_duration:
-            data = np.append(data,1)
-            self.buffer_out.update(timestamp.tolist(), data.tolist())
+        timestamp = self.buffer_in.get_timestamps(last_n=1)
+        data = self.buffer_in.get_unstructured(last_n=1)
+        if timestamp - self.init_timestamp >= self.epoch_duration:
+            data = np.append(data, [[1]], axis=1)
+            self.buffer_out.update(timestamp, data)
             self.init_timestamp = timestamp
         else:
-            data = np.append(data,0)
-            self.buffer_out.update(timestamp, data.tolist())
+            data = np.append(data, [[0]], axis=1)
+            self.buffer_out.update(timestamp, data)
+
 
 
 class PSD(Transformer):
