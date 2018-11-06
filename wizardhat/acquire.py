@@ -176,6 +176,10 @@ class Receiver:
                     #pull marker stream chunk and timestamp
                     #Think about where the marker stream indexing should occur? 
                     #perhaps make a new timeseries just for marker stream and combine after 
+                    #The idea is that you collect timestamps with markers and you collect data with markers. the two lists will be
+                    #different because of different nominal frequencies. to match those up, for each marker you take it's timestsmp
+                    #and subtract the entire array of data timestamps, take the absolute value of all and find the min vall in that array
+                    #that will be the index in the data for that specific marker, and repeat for each marker
 
 
         except SerialException:
