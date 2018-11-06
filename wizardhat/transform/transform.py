@@ -131,7 +131,7 @@ class Epoch(Transformer):
         ch_names = list(self.buffer_in.ch_names)
         ch_names.append('epoch_marker')
         self.buffer_out = TimeSeries(ch_names)
-        self.init_timestamp = self.buffer_in.last_sample["time"]
+        self.init_timestamp = self.buffer_in.get_timestamps(last_n=1)
         self.epoch_duration = epoch_duration
         
     def _buffer_update_callback(self):

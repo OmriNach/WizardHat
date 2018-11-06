@@ -74,7 +74,9 @@ class Receiver:
 
         streams = get_lsl_streams()
         source_ids = list(streams.keys())
-
+        ##TODO marker stream
+        ##if Marker stream name is present, remove it from source ids list so it doesnt prompt a to select it
+        ##send marker stream directly to get_lsl_inlets with type = marker_stream, with source_id = experiment or whatever
         if source_id is None or source_id not in source_ids:
             # if multiple sources detected, let user choose from a menu
             if len(source_ids) > 1:
@@ -92,7 +94,7 @@ class Receiver:
             else:
                 source_id = source_ids[0]
             print("Using source with ID {}".format(source_id))
-
+        ##Marker stream passes the above code straight to here. probably have to call it twice
         self._inlets = get_lsl_inlets(streams,
                                       with_types=with_types,
                                       with_source_ids=(source_id,),
@@ -100,6 +102,7 @@ class Receiver:
         self._source_id = source_id
 
         # acquire inlet parameters
+        #Repeat for marker stream
         self.sfreq, self.n_chan, self.ch_names, self.buffers = {}, {}, {}, {}
         for name, inlet in self._inlets.items():
             info = inlet.info()
@@ -114,6 +117,7 @@ class Receiver:
                       .format(name))
 
             # instantiate the `buffers.TimeSeries` instances
+            ##if marker stream, ch_names needs to include marker column
             metadata = {"pipeline": [type(self).__name__]}
             self.buffers[name] = TimeSeries.with_window(self.ch_names[name],
                                                         self.sfreq[name],
@@ -168,6 +172,11 @@ class Receiver:
                         timestamps = self._dejitter_timestamps(name,
                                                                timestamps)
                     self.buffers[name].update(timestamps, samples)
+                    #If marker stream
+                    #pull marker stream chunk and timestamp
+                    #Think about where the marker stream indexing should occur? 
+                    #perhaps make a new timeseries just for marker stream and combine after 
+
 
         except SerialException:
             print("BGAPI streaming interrupted. Device disconnected?")

@@ -3,7 +3,7 @@
 
 import ble2lsl
 from ble2lsl.devices import muse2016
-from wizardhat import acquire, plot
+from wizardhat import acquire, transform
 
 device = muse2016
 plot_stream = "EEG"
@@ -11,4 +11,4 @@ plot_stream = "EEG"
 if __name__ == '__main__':
     dummy_outlet = ble2lsl.Dummy(device)
     receiver = acquire.Receiver()
-    plot.Lines(receiver.buffers[plot_stream])
+    epoch = transform.Epoch(receiver.buffers[plot_stream])
