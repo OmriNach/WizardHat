@@ -53,7 +53,7 @@ class Receiver:
     """
 
     def __init__(self, source_id=None, with_types=('',), dejitter=True,
-                 max_chunklen=0, autostart=True, window=10, **kwargs):
+                 max_chunklen=0, autostart=True, window=10,marker_stream=False, **kwargs):
         """Instantiate LSLStreamer given length of data store in seconds.
 
         Args:
@@ -75,6 +75,10 @@ class Receiver:
 
         streams = get_lsl_streams()
         source_ids = list(streams.keys())
+        if 'Markers' in source_ids:
+            dejitter=False
+            marker_stream = True
+            source_ids.remove('Markers') #do this so not to prompt the selection of a marker stream.
         ##TODO marker stream
         ##if Marker stream name is present, remove it from source ids list so it doesnt prompt a to select it
         ##send marker stream directly to get_lsl_inlets with type = marker_stream, with source_id = experiment or whatever
@@ -95,6 +99,8 @@ class Receiver:
             else:
                 source_id = source_ids[0]
             print("Using source with ID {}".format(source_id))
+            if marker_stream:
+                print("Found marker stream from {}".format(streams['Markers']['Markers'].name())) #Let use name which experiment is streaming markers
         ##Marker stream passes the above code straight to here. probably have to call it twice
         self._inlets = get_lsl_inlets(streams,
                                       with_types=with_types,
@@ -102,8 +108,8 @@ class Receiver:
                                       max_chunklen=max_chunklen)[source_id]
         self._source_id = source_id
 
-        # acquire inlet parameters
-        #Repeat for marker stream
+        # acquire inlet parameters, which should include markers if they are present.
+        
         self.sfreq, self.n_chan, self.ch_names, self.buffers = {}, {}, {}, {}
         for name, inlet in list(self._inlets.items()):
             info = inlet.info()
@@ -117,6 +123,9 @@ class Receiver:
                 continue
             self.n_chan[name] = info.channel_count()
             self.ch_names[name] = get_ch_names(info)
+            if marker_stream and info.type() is not 'Markers': #dont need to add a marker column to the marker inlet obviously
+                self.ch_names[name].append('Markers')
+                self.n_chan[name] +=1
             if '' in self.ch_names[name]:
                 print("Empty channel name(s) in {} stream info"
                       .format(name))
@@ -126,6 +135,7 @@ class Receiver:
 
             # instantiate the `buffers.TimeSeries` instances
             ##if marker stream, ch_names needs to include marker column
+
             metadata = {"pipeline": [type(self).__name__]}
             self.buffers[name] = TimeSeries.with_window(self.ch_names[name],
                                                         self.sfreq[name],
@@ -180,7 +190,6 @@ class Receiver:
         try:
             while self._proceed:
                 samples, timestamps = inlets[name].pull_chunk(timeout=0.1)
-                #print(name, samples, timestamps)
                 if timestamps:
                     if self._dejitter:
                         try:
@@ -188,11 +197,14 @@ class Receiver:
                                                                    timestamps)
                         except IndexError:
                             print(name)
+                    #TODO if marker_stream, add 0 to all timestamps 
                     self.buffers[name].update(timestamps, samples)
                     #If marker stream
                     #pull marker stream chunk and timestamp
-                    #Think about where the marker stream indexing should occur? 
-                    #perhaps make a new timeseries just for marker stream and combine after 
+                    #Since all the data will be dejittered, once the collection of data is done, i.e. you hit the window length
+                    # if marker_stream = True, send data to be matched with the marker stream in a function called align_markers. 
+
+                    #Align markers function: 
                     #The idea is that you collect timestamps with markers and you collect data with markers. the two lists will be
                     #different because of different nominal frequencies. to match those up, for each marker you take it's timestsmp
                     #and subtract the entire array of data timestamps, take the absolute value of all and find the min vall in that array
