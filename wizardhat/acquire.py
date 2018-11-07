@@ -189,8 +189,6 @@ class Receiver:
     def _receive(self, name):
         """Streaming thread."""
         inlets = self._inlets
-        print(inlets)
-        print(type(inlets))
         try:
             while self._proceed:
                 samples, timestamps = inlets[name].pull_chunk(timeout=0.1)
@@ -207,6 +205,7 @@ class Receiver:
                     
                     #TODO if marker_stream, add 0 to all timestamps 
                     self.buffers[name].update(timestamps, samples)
+        
                   
 
 
@@ -245,15 +244,13 @@ class Receiver:
         different because of different nominal frequencies. to match those up, for each marker you take it's timestsmp
         and subtract the entire array of data timestamps, take the absolute value of all and find the min vall in that array
         that will be the index in the data for that specific marker, and repeat for each marker"""
-        markers = self._inlets['Markers']
-        self._inlets.pop('Markers')
+        markers = self.buffers['Markers'].data
         for name in self._inlets:
             timestamps = self.buffers[name].get_timestamps()
-            # for marker in markers
-            #abs(marker - timestamps)
-            #np.argmin(result)
-            #index of result
-            #data[index] = markerlabel
+            for marker in markers:
+                index = np.argmin(np.abs(marker[0] - timestamps))
+                self.buffers[name].data[index][-1] = marker[1]
+        
 
 
 def get_lsl_streams():

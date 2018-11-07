@@ -239,6 +239,7 @@ class TimeSeries(Buffer):
         self._record = record
         self._write = True
         self._store_once = store_once
+
         # write remaining data to file on program exit (e.g. quit())
         if record:
             atexit.register(self.write_to_file)
@@ -329,9 +330,10 @@ class TimeSeries(Buffer):
             if self._count == 0:
                 self.write_to_file()
                 if self._store_once:
-                    self._write = False
+                    self._write=False    
                 else:
                     self._append(new[cutoff:])
+                    
 
     def _append(self, new):
         with self._lock:
