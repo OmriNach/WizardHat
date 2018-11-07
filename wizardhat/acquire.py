@@ -72,12 +72,14 @@ class Receiver:
             kwargs: Additional keyword arguments to default `buffers.TimeSeries`.
 
         """
+        self.marker_stream = marker_stream
+
 
         streams = get_lsl_streams()
         source_ids = list(streams.keys())
         if 'Markers' in source_ids:
             dejitter=False
-            marker_stream = True
+            self.marker_stream = True
             source_ids.remove('Markers') #do this so not to prompt the selection of a marker stream.
         ##TODO marker stream
         ##if Marker stream name is present, remove it from source ids list so it doesnt prompt a to select it
@@ -99,7 +101,7 @@ class Receiver:
             else:
                 source_id = source_ids[0]
             print("Using source with ID {}".format(source_id))
-            if marker_stream:
+            if self.marker_stream:
                 print("Found marker stream from {}".format(streams['Markers']['Markers'].name())) #Let use name which experiment is streaming markers
         ##Marker stream passes the above code straight to here. probably have to call it twice
         self._inlets = get_lsl_inlets(streams,
@@ -123,7 +125,7 @@ class Receiver:
                 continue
             self.n_chan[name] = info.channel_count()
             self.ch_names[name] = get_ch_names(info)
-            if marker_stream and info.type() is not 'Markers': #dont need to add a marker column to the marker inlet obviously
+            if self.marker_stream and info.type() != 'Markers': #dont need to add a marker column to the marker inlet obviously
                 self.ch_names[name].append('Markers')
                 self.n_chan[name] +=1
             if '' in self.ch_names[name]:
@@ -187,6 +189,8 @@ class Receiver:
     def _receive(self, name):
         """Streaming thread."""
         inlets = self._inlets
+        print(inlets)
+        print(type(inlets))
         try:
             while self._proceed:
                 samples, timestamps = inlets[name].pull_chunk(timeout=0.1)
@@ -197,18 +201,13 @@ class Receiver:
                                                                    timestamps)
                         except IndexError:
                             print(name)
+                    if self.marker_stream and inlets[name].info().type() != 'Markers':
+                        for sample in samples:
+                            sample.append(0)
+                    
                     #TODO if marker_stream, add 0 to all timestamps 
                     self.buffers[name].update(timestamps, samples)
-                    #If marker stream
-                    #pull marker stream chunk and timestamp
-                    #Since all the data will be dejittered, once the collection of data is done, i.e. you hit the window length
-                    # if marker_stream = True, send data to be matched with the marker stream in a function called align_markers. 
-
-                    #Align markers function: 
-                    #The idea is that you collect timestamps with markers and you collect data with markers. the two lists will be
-                    #different because of different nominal frequencies. to match those up, for each marker you take it's timestsmp
-                    #and subtract the entire array of data timestamps, take the absolute value of all and find the min vall in that array
-                    #that will be the index in the data for that specific marker, and repeat for each marker
+                  
 
 
         except SerialException:
@@ -239,6 +238,22 @@ class Receiver:
         else:
             dejittered = timestamps
         return dejittered
+    
+    def _align_markers(self):
+        """#Align markers function: 
+        The idea is that you collect timestamps with markers and you collect data with markers. the two lists will be
+        different because of different nominal frequencies. to match those up, for each marker you take it's timestsmp
+        and subtract the entire array of data timestamps, take the absolute value of all and find the min vall in that array
+        that will be the index in the data for that specific marker, and repeat for each marker"""
+        markers = self._inlets['Markers']
+        self._inlets.pop('Markers')
+        for name in self._inlets:
+            timestamps = self.buffers[name].get_timestamps()
+            # for marker in markers
+            #abs(marker - timestamps)
+            #np.argmin(result)
+            #index of result
+            #data[index] = markerlabel
 
 
 def get_lsl_streams():
@@ -372,3 +387,5 @@ def dejitter_timestamps(timestamps, sfreq, last_time=None):
     dejittered /= sfreq
     dejittered += last_time + 1 / sfreq
     return dejittered
+
+
