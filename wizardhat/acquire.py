@@ -32,6 +32,7 @@ import numpy as np
 import pylsl as lsl
 
 
+
 class Receiver:
     """Receives data from one or more LSL streams associated with a device.
 
@@ -74,7 +75,6 @@ class Receiver:
         """
         self.marker_stream = marker_stream
 
-
         streams = get_lsl_streams()
         source_ids = list(streams.keys())
         if 'Markers' in source_ids:
@@ -103,7 +103,7 @@ class Receiver:
             print("Using source with ID {}".format(source_id))
             if self.marker_stream:
                 print("Found marker stream from {}".format(streams['Markers']['Markers'].name())) #Let use name which experiment is streaming markers
-        ##Marker stream passes the above code straight to here. probably have to call it twice
+        ##Marker stream passes the above code straight to here. 
         self._inlets = get_lsl_inlets(streams,
                                       with_types=with_types,
                                       with_source_ids=(source_id,),
@@ -125,9 +125,6 @@ class Receiver:
                 continue
             self.n_chan[name] = info.channel_count()
             self.ch_names[name] = get_ch_names(info)
-            if self.marker_stream and info.type() != 'Markers': #dont need to add a marker column to the marker inlet obviously
-                self.ch_names[name].append('Markers')
-                self.n_chan[name] +=1
             if '' in self.ch_names[name]:
                 print("Empty channel name(s) in {} stream info"
                       .format(name))
@@ -199,11 +196,7 @@ class Receiver:
                                                                    timestamps)
                         except IndexError:
                             print(name)
-                    if self.marker_stream and inlets[name].info().type() != 'Markers':
-                        for sample in samples:
-                            sample.append(0)
-                    
-                    #TODO if marker_stream, add 0 to all timestamps 
+
                     self.buffers[name].update(timestamps, samples)
         
                   
@@ -238,19 +231,6 @@ class Receiver:
             dejittered = timestamps
         return dejittered
     
-    def _align_markers(self):
-        """#Align markers function: 
-        The idea is that you collect timestamps with markers and you collect data with markers. the two lists will be
-        different because of different nominal frequencies. to match those up, for each marker you take it's timestsmp
-        and subtract the entire array of data timestamps, take the absolute value of all and find the min vall in that array
-        that will be the index in the data for that specific marker, and repeat for each marker"""
-        markers = self.buffers['Markers'].data
-        for name in self._inlets:
-            timestamps = self.buffers[name].get_timestamps()
-            for marker in markers:
-                index = np.argmin(np.abs(marker[0] - timestamps))
-                self.buffers[name].data[index][-1] = marker[1]
-        
 
 
 def get_lsl_streams():
@@ -268,6 +248,7 @@ def get_lsl_streams():
         {'Muse-00:00:00:00:00:00': {'EEG': <pylsl.pylsl.StreamInfo>,
                                     'accelerometer': <pylsl.pylsl.StreamInfo>}}
     """
+
     streams = [(stream.source_id(), stream.type(), stream)
                for stream in lsl.resolve_streams(wait_time=2)]
     streams_dict = streams_dict_from_streams(streams)

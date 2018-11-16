@@ -10,7 +10,7 @@ import mne
 import numpy as np
 import scipy.signal as spsig
 
-
+import pdb
 class Transformer:
     """Base class for transforming data handled by `Buffer` objects.
 
@@ -145,7 +145,31 @@ class Epoch(Transformer):
             else:
                 continue
         self.buffer_out.update(timestamp, data)
-
+    
+class Markers(Transformer):
+    def __init__(self,buffer_in, marker_stream, dejittered_timestamps):
+        Transformer.__init__(self, buffer_in=buffer_in)
+        ch_names = list(self.buffer_in.ch_names)
+        ch_names.append('Markers')
+        self.buffer_out = TimeSeries(ch_names)
+        self.marker_stream = marker_stream
+        self.dejittered_timestamps = dejittered_timestamps
+        
+    def _buffer_update_callback(self):
+        """#Align markers function: 
+        The idea is that you collect timestamps with markers and you collect data with markers. the two lists will be
+        different because of different nominal frequencies. to match those up, for each marker you take it's timestsmp
+        and subtract the entire array of data timestamps, take the absolute value of all and find the min vall in that array
+        that will be the index in the data for that specific marker, and repeat for each marker"""
+        timestamps = self.buffer_in.get_timestamps()
+        markers = np.zeros([len(self.buffer_in.data),1])
+        pdb.set_trace()
+        for marker in self.marker_stream.data:
+            index = np.argmin(np.abs(marker[0] - timestamps))
+            markers[index] = marker[1]
+        data = np.append(self.buffer_in.unstructured, markers, axis=1)
+        self.buffer_out.update(self.dejittered_timestamps, data)
+            
 
 
 class PSD(Transformer):
